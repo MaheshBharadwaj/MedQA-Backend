@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 FLASK_APP = os.getenv('FLASK_APP', 'src.app')
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')
