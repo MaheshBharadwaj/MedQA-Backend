@@ -15,6 +15,7 @@ from src.routes.chat import chat_bp
 from src.routes.message import message_bp
 from src.routes.file import file_bp
 from src.routes.search import search_bp
+from src.routes.user import user_bp
 
 def create_app():
     app = Flask(__name__)
@@ -35,6 +36,7 @@ def create_app():
     app.register_blueprint(message_bp)
     app.register_blueprint(file_bp)
     app.register_blueprint(search_bp)
+    app.register_blueprint(user_bp)
     # Error handlers
     @app.errorhandler(APIException)
     def handle_api_exception(error):

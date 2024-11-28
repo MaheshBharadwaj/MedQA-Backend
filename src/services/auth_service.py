@@ -29,7 +29,7 @@ class AuthService:
             db.session.commit()
 
             # Generate JWT token
-            return AuthService.generate_jwt(user)
+            return user.to_dict(), AuthService.generate_jwt(user)
 
         except ValueError:
             # Invalid token

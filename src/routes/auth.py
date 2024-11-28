@@ -12,7 +12,7 @@ def login():
         if not data or 'code' not in data:
             raise ValidationError("Missing required fields")
 
-        token = AuthService.verify_google_token(data['code'])
+        user, token = AuthService.verify_google_token(data['code'])
         if not token:
             return jsonify({
                 'error': {
@@ -22,6 +22,7 @@ def login():
             }), StatusCodes.BAD_REQUEST
 
         return jsonify({
+            'user': user,
             'access_token': token,
             'token_type': 'Bearer',
             'expires_in': 3600  # 1 hour
