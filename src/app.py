@@ -12,16 +12,17 @@ from src.utils.exceptions import APIException
 # Import routes
 from src.routes.auth import auth_bp
 from src.routes.chat import chat_bp
-from src.routes.message import message_bp
+# from src.routes.message import message_bp
 from src.routes.file import file_bp
 from src.routes.search import search_bp
 from src.routes.user import user_bp
+from src.routes.llm import llm_bp
 
 def create_app():
     app = Flask(__name__)
     CORS(app, resources={r"/*": {"origins": "*"}})
     # Configuration
-    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL  # Fixed this line
+    app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
     app.config['ENV'] = FLASK_ENV
@@ -33,10 +34,12 @@ def create_app():
     # Register blueprints
     app.register_blueprint(auth_bp)
     app.register_blueprint(chat_bp)
-    app.register_blueprint(message_bp)
+    # app.register_blueprint(message_bp)
     app.register_blueprint(file_bp)
     app.register_blueprint(search_bp)
     app.register_blueprint(user_bp)
+    app.register_blueprint(llm_bp)
+
     # Error handlers
     @app.errorhandler(APIException)
     def handle_api_exception(error):

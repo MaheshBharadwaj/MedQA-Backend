@@ -3,9 +3,11 @@ from openai import OpenAI
 from src.config.constants import (
     ANTHROPIC_API_KEY,
     OPENAI_API_KEY,
-    ModelProvider
+    ModelProvider,
+    CHROMA_DB_PATH
 )
 from src.utils.exceptions import ValidationError
+from src.services.llangchain import *
 
 class LLMService:
     def __init__(self):
@@ -23,7 +25,6 @@ class LLMService:
     def _get_claude_completion(self, message, context_messages=None):
         messages = []
         
-        # Add context messages if provided
         if context_messages:
             for msg in context_messages:
                 messages.append({
@@ -31,7 +32,6 @@ class LLMService:
                     "content": msg["content"]
                 })
         
-        # Add the current message
         messages.append({
             "role": "user",
             "content": message
@@ -80,3 +80,14 @@ class LLMService:
             }
         except Exception as e:
             raise Exception(f"Error getting completion from GPT: {str(e)}")
+
+class RAGService:
+    def __init__(self):
+        self.document_retriever = DocumentRetriever(persist_directory=CHROMA_DB_PATH)
+        self.rag_chat_bot = RAGChatBot(self.document_retriever)
+
+    def get_completion(self, messages):
+        if len(messages) == 1:
+            return self.rag_chat_bot.generate_response(messages[0])
+        else:
+            return self.rag_chat_bot.generate_answer_with_chat_context(messages)

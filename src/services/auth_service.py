@@ -33,7 +33,7 @@ class AuthService:
 
         except ValueError:
             # Invalid token
-            return None
+            return None, None
 
     @staticmethod
     def generate_jwt(user):
