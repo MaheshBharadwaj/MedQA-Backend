@@ -38,6 +38,6 @@ def login():
         return jsonify({
             'error': {
                 'code': 'INTERNAL_ERROR',
-                'message': Messages.SERVER_ERROR
+                'message': f"Messages.SERVER_ERROR: {str(e)}"
             }
         }), StatusCodes.INTERNAL_ERROR

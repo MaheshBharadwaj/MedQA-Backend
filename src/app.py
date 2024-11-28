@@ -1,5 +1,6 @@
 from flask import Flask, jsonify
 from flask_migrate import Migrate
+from flask_cors import CORS
 from src.config.constants import (
     DATABASE_URL,
     FLASK_ENV,
@@ -17,7 +18,7 @@ from src.routes.search import search_bp
 
 def create_app():
     app = Flask(__name__)
-    
+    CORS(app, resources={r"/*": {"origins": "*"}})
     # Configuration
     app.config['SQLALCHEMY_DATABASE_URI'] = DATABASE_URL  # Fixed this line
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -29,12 +30,11 @@ def create_app():
     migrate.init_app(app, db)  # Added this line
 
     # Register blueprints
-    app.register_blueprint(auth_bp, url_prefix='/v1/auth')
-    app.register_blueprint(chat_bp, url_prefix='/v1/chats')
-    app.register_blueprint(message_bp, url_prefix='/v1')  # Messages are under /chats/{chat_id}/messages
-    app.register_blueprint(file_bp, url_prefix='/v1/files')
-    app.register_blueprint(search_bp, url_prefix='/v1/search')
-
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(chat_bp)
+    app.register_blueprint(message_bp)
+    app.register_blueprint(file_bp)
+    app.register_blueprint(search_bp)
     # Error handlers
     @app.errorhandler(APIException)
     def handle_api_exception(error):
@@ -84,3 +84,4 @@ def create_app():
     return app
 
 app = create_app()
+print(app.url_map)

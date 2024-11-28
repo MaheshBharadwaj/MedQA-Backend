@@ -1,6 +1,6 @@
 from google.oauth2 import id_token
 from google.auth.transport import requests
-import jwt
+import jwt as pyjwt  # Changed import
 from datetime import datetime, timedelta
 from src.config.constants import GOOGLE_CLIENT_ID, JWT_SECRET_KEY
 from src.models.user import User
@@ -42,14 +42,14 @@ class AuthService:
             'email': user.email,
             'exp': datetime.utcnow() + timedelta(days=1)
         }
-        return jwt.encode(payload, JWT_SECRET_KEY, algorithm='HS256')
+        return pyjwt.encode(payload, JWT_SECRET_KEY, algorithm='HS256')  # Changed to pyjwt
 
     @staticmethod
     def verify_jwt(token):
         try:
-            payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])
+            payload = pyjwt.decode(token, JWT_SECRET_KEY, algorithms=['HS256'])  # Changed to pyjwt
             return User.query.filter_by(user_id=payload['user_id']).first()
-        except jwt.ExpiredSignatureError:
+        except pyjwt.ExpiredSignatureError:
             return None
-        except jwt.InvalidTokenError:
+        except pyjwt.InvalidTokenError:
             return None
