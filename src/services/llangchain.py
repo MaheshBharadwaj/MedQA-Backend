@@ -27,6 +27,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from operator import itemgetter
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
+from src.config.constants import COMMON_INSTRUCTIONS, PROMPT_TEMPLATE_NEW, SYSTEM_PROMPT_TEMPLATE_CHAT_HISTORY
 
 class DocumentRetriever:
     def __init__(self, persist_directory):
@@ -38,14 +39,13 @@ class DocumentRetriever:
         # Retrieve top_k relevant document chunks based on the query
         return self.vector_db.similarity_search(query, k=top_k)
 
-
 class RAGChatBot:
     def __init__(self, retriever):
         self.retriever = retriever
-        print(f"API KEY: {os.environ.get('OPENAI_API_KEY')}")
-        self.chat_model = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0.3)
-        self.prompt_template = hub.pull("rlm/rag-prompt")
-
+        self.chat_model = ChatOpenAI(model_name="gpt-4o", temperature=0)
+        # self.prompt_template = hub.pull("rlm/rag-prompt")
+        self.prompt_template = PROMPT_TEMPLATE_NEW
+        self.prompt_template_for_chat = SYSTEM_PROMPT_TEMPLATE_CHAT_HISTORY
     def format_docs(self, docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
@@ -56,7 +56,8 @@ class RAGChatBot:
         # for relevant_doc in relevant_docs:
             # print(relevant_doc.metadata['source'])
             # print(relevant_doc.page_content)
-
+        print("Relevant Context (FIRST MESSAGE): ", relevant_context)
+        user_query = user_query 
 #         instructions = """
 #         1. You are a highly knowledgeable and empathetic medical assistant specializing in advising on surgical procedures. Your primary role is to help both doctors and patients decide whether a given surgery is appropriate be conducted as an inpatient or outpatient procedure. You provide detailed explanations to support your recommendations, ensuring that users make informed decisions.
 #         2. If a user chats about some topic on medical device, but doesn't ask/chat about inpatient or outpatient surgery, gently ask the user if you should help him regarding the inpatient vs outpatient surgery
@@ -64,17 +65,20 @@ class RAGChatBot:
 #         4. Chat with the user using the given context. If the context is not at all relevant to the question asked. Tell your reasoning behind your answer and let the user know that you are not sure of the answer, due to lack of relevent context on your end to answer the question.
 #         5. If you feel that the data provided is insufficient to answer the question, gently ask the user about more information.
 #   """
-        instructions = """1. You are a highly knowledgeable medical assistant specializing in advising on surgical procedures. Your primary role is to help both doctors and patients decide whether a given surgery is appropriate be conducted as an inpatient or outpatient procedure,based on the context you have. You provide detailed explanations to support your recommendations, ensuring that users make informed decisions.
-        2. You can save huge costs if you can correctly identify the case of Outpatient Surgery, so need not be conservative if you are confident, with the context you have"""
-
+        instructions = COMMON_INSTRUCTIONS
+        # Construct the input data for the chain
         input_data = {
             "context": relevant_context,
-            "question": user_query,  # Directly use the user query here
-            "GUIDELINES": instructions
+            "question": user_query,
+            "instructions": instructions# Directly use the user query here
+            # "GUIDELINES": instructions
         }
         
+        # Create a prompt using the template
         formatted_prompt = self.prompt_template.format(**input_data)
+        # print(formatted_prompt)
         
+        # Generate a response using the LLM with invoke method
         response = self.chat_model.invoke(formatted_prompt)
         
         return response.content
@@ -82,19 +86,21 @@ class RAGChatBot:
     def generate_response_no_rag(self, question):
         template = """You are a highly knowledgeable and empathetic medical assistant specializing in advising on surgical procedures. Your primary role is to help both doctors and patients decide whether a given surgery is appropriate be conducted as an inpatient or outpatient procedure. You provide detailed explanations to support your recommendations, ensuring that users make informed decisions.
 
-            Guidelines:
-            1. **Focus on Medical Context:** Always center your responses around medical topics, particularly those related to surgical procedures and patient care settings.
-            2. **Inquire When Necessary:** If you require more information to make an informed decision, politely ask the user specific questions about the surgery details, such as the type of surgery, patient health status, or any existing medical conditions.
-            3. **Educational Approach:** Explain your suggestions clearly, using simple language that both healthcare professionals and patients can understand. Provide insights into the benefits and considerations of each option.
-            4. **Boundary Setting:** If a user asks questions outside the medical domain, gently remind them that your expertise is focused on healthcare and surgical advice.
+Guidelines:
+1. **Focus on Medical Context:** Always center your responses around medical topics, particularly those related to surgical procedures and patient care settings.
+2. **Inquire When Necessary:** If you require more information to make an informed decision, politely ask the user specific questions about the surgery details, such as the type of surgery, patient health status, or any existing medical conditions.
+3. **Educational Approach:** Explain your suggestions clearly, using simple language that both healthcare professionals and patients can understand. Provide insights into the benefits and considerations of each option.
+4. **Boundary Setting:** If a user asks questions outside the medical domain, gently remind them that your expertise is focused on healthcare and surgical advice.
 
-            Example Interaction:
-            - **User Query:** "I need to know if my knee surgery should be inpatient or outpatient."
-            - **Response:** "Knee surgeries can often be performed as outpatient procedures if the patient is in good health and the surgery is minimally invasive. However, if there are underlying health concerns or if a more complex procedure is needed, an inpatient setting might be safer. Could you provide more details about your specific situation?"
+Example Interaction:
+- **User Query:** "I need to know if my knee surgery should be inpatient or outpatient."
+- **Response:** "Knee surgeries can often be performed as outpatient procedures if the patient is in good health and the surgery is minimally invasive. However, if there are underlying health concerns or if a more complex procedure is needed, an inpatient setting might be safer. Could you provide more details about your specific situation?"
 
-            By adhering to these guidelines, you ensure that every interaction is informative, supportive, and within the scope of medical advisement.
+By adhering to these guidelines, you ensure that every interaction is informative, supportive, and within the scope of medical advisement.
         """
-        system_message_prompt = SystemMessagePromptTemplate.from_template(template)
+        template1 = """1. You are a highly knowledgeable medical assistant specializing in advising on surgical procedures. Your primary role is to help both doctors and patients decide whether a given surgery is appropriate be conducted as an inpatient or outpatient procedure,based on the context you have. You provide detailed explanations to support your recommendations, ensuring that users make informed decisions.
+        2. You can save huge costs if you can correctly identify the case of Outpatient Surgery, so please keep this in mind."""
+        system_message_prompt = SystemMessagePromptTemplate.from_template(template1)
         human_template = "{text}"
         human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
 
@@ -122,12 +128,17 @@ class RAGChatBot:
         Returns:
             str: The generated response.
         """
-        recent_messages = messages[-5:]  # Last 5 messages (4 historical + current)
-
+        # Extract the last 4 messages plus the current one
+        recent_messages = []
+        if len(messages)>5:
+            recent_messages = [messages[0]] + [messages[1]]
+        recent_messages = recent_messages+ messages[-5:]  # Last 5 messages (4 historical + current)
+        # Prepare input for retrieval (use only the content of messages, excluding the current one)
         retrieval_input = "\n".join(
             f"{message['role'].capitalize()}: {message['content']}" for message in recent_messages[:-1]
         )
 
+        # Attempt to retrieve external documents
         try:
             retrieved_docs = self.retriever.retrieve_documents(retrieval_input)
             retrieved_context = self.format_docs(retrieved_docs)
@@ -135,13 +146,20 @@ class RAGChatBot:
             retrieved_context = "No additional information could be retrieved."
             print(f"Error during document retrieval: {e}")
 
+        # Ensure retrieved context is a valid string
         retrieved_context = str(retrieved_context)
+        print("Retrieved Context (Other messages)" + retrieved_context)
 
-        system_message_prompt = """1. You are a highly knowledgeable medical chat assistant specializing in advising on surgical procedures. Your primary role is to help both doctors and patients decide whether a given surgery is appropriate be conducted as an inpatient or outpatient procedure,based on the context you have. You provide detailed explanations to support your recommendations, ensuring that users make informed decisions.
-        2. You can save HUGE costs if you can correctly identify the case of Outpatient Surgery, so need not be conservative if you are confident, with the context you have.
-        3. If the question/chat is outside the medical domain, gently remind your expertise."""
-        system_message = SystemMessage(content= system_message_prompt + f"\n **RELEVANT INFORMATION RETREIVED**:\n{retrieved_context}")
+        # Add a system message with the retrieved context
+        input_data = {
+            "context": retrieved_context,
+            "instructions": COMMON_INSTRUCTIONS
+        }
+        system_message_prompt = self.prompt_template_for_chat.format(**input_data)
+        system_message = SystemMessage(content= system_message_prompt)
+        # system_message = SystemMessage(content="You are a Medical QA chat assistant and you are specialized in making decisions between Inpatient vs Outpatient surgeries.")
 
+        # Convert recent conversation into LangChain message objects
         formatted_recent_messages = []
         for message in recent_messages:
             if message["role"] == "user":
@@ -151,13 +169,20 @@ class RAGChatBot:
             else:
                 raise ValueError(f"Unexpected role: {message['role']}")
 
+        # Combine system message and formatted recent messages
         input_messages = [system_message] + formatted_recent_messages
+        #formatted_recent_messages.append(HumanMessage(content="Outpatient Surgery saves a lot of money. So never be conservative until otherwise inpatient surgery is ABSOULETELY necessary."))
+        # input_messages =  formatted_recent_messages
+        print(formatted_recent_messages)
+
+        # Generate the response using the chat model
         try:
             llm_response = self.chat_model.invoke(input_messages)
         except Exception as e:
             print(f"Error during model generation: {e}")
             raise
 
+        # Parse the response if needed
         parsed_response = StrOutputParser().parse(llm_response)
 
         return parsed_response.content
