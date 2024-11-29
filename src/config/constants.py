@@ -1,7 +1,7 @@
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 FLASK_APP = os.getenv('FLASK_APP', 'src.app')
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')
@@ -25,6 +25,7 @@ JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 MAX_CONTENT_LENGTH = 32 * 1024 * 1024  # 16MB max file size
+CHROMA_DB_PATH = './chroma_db'
 
 class ModelProvider:
     ANTHROPIC = "claude"

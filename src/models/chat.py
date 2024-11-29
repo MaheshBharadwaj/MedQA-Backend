@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from src.utils.db import db
 from src.config.constants import ModelProvider
+from src.models.message import Message
 
 class Chat(db.Model):
     __tablename__ = 'chats'
