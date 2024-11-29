@@ -1,97 +1,69 @@
-# from flask import Blueprint, request, jsonify
-# from src.services.chat_service import ChatService
-# from src.services.llm_service import LLMService
-# from src.services.file_service import FileService
-# from src.utils.decorators import require_auth
-# from src.utils.exceptions import ValidationError, ResourceNotFoundError
-# from src.config.constants import StatusCodes, Messages
+from flask import Blueprint, jsonify, request
+from typing import Dict, Any
+from uuid import UUID
+from http import HTTPStatus
+from src.services.chat_service import ChatService
 
-# message_bp = Blueprint('messages', __name__)
-# file_service = FileService()
+message_bp = Blueprint('messages', __name__)
 
-# @message_bp.route('/chats/<uuid:chat_id>/messages', methods=['POST'])
-# @require_auth
-# def send_message(current_user, chat_id):
-#     try:
-#         data = request.get_json()
-#         if not data or 'content' not in data or 'role' not in data:
-#             raise ValidationError("Missing required fields")
+@message_bp.route('/chats/<uuid:chat_id>/messages', methods=['POST'])
+def append_message(chat_id: UUID) -> tuple[Dict[str, Any], int]:
+    """
+    Append a new message to a chat.
+    
+    Args:
+        chat_id (UUID): The ID of the chat to append the message to
+        
+    Returns:
+        tuple: (response_data, status_code)
+    """
+    try:
+        data = request.get_json()
+        
+        if not all(key in data for key in ['content', 'role']):
+            return jsonify({
+                'error': 'Missing required fields. Required: content, role'
+            }), HTTPStatus.BAD_REQUEST
+            
+        message = ChatService.append_message(
+            chat_id=chat_id,
+            content=data['content'],
+            role=data['role'],
+            files=data.get('files')
+        )
+        
+        return jsonify(message), HTTPStatus.CREATED
+        
+    except Exception as e:
+        print(e)
+        return jsonify({
+            'error': str(e)
+        }), HTTPStatus.INTERNAL_SERVER_ERROR
 
-#         # First verify chat access
-#         chat = ChatService.get_chat(chat_id, current_user.user_id)
-
-#         # Handle file attachments if any
-#         files = []
-#         if 'file_ids' in data and data['file_ids']:
-#             for file_id in data['file_ids']:
-#                 # Verify file access and get file records
-#                 try:
-#                     file_url = file_service.get_file_url(file_id, current_user.user_id)
-#                     files.append(file_url)
-#                 except Exception:
-#                     continue
-
-#         # If it's a user message, get LLM response
-#         message = ChatService.add_message(
-#             chat_id=chat_id,
-#             content=data['content'],
-#             role=data['role'],
-#             files=files
-#         )
-
-#         if data['role'] == 'user':
-#         return jsonify({
-#             'error': {
-#                 'code': 'INVALID_REQUEST',
-#                 'message': str(e)
-#             }
-#         }), StatusCodes.BAD_REQUEST
-#     except ResourceNotFoundError as e:
-#         return jsonify({
-#             'error': {
-#                 'code': 'NOT_FOUND',
-#                 'message': str(e)
-#             }
-#         }), StatusCodes.NOT_FOUND
-#     except Exception as e:
-#         return jsonify({
-#             'error': {
-#                 'code': 'INTERNAL_ERROR',
-#                 'message': Messages.SERVER_ERROR
-#             }
-#         }), StatusCodes.INTERNAL_ERROR
-
-# @message_bp.route('/chats/<uuid:chat_id>/messages', methods=['GET'])
-# @require_auth
-# def get_messages(current_user, chat_id):
-#     try:
-#         # Verify chat access
-#         ChatService.get_chat(chat_id, current_user.user_id)
-
-#         limit = int(request.args.get('limit', 50))
-#         before = request.args.get('before')
-#         include_files = request.args.get('include_files', 'false').lower() == 'true'
-
-#         messages = ChatService.get_messages(
-#             chat_id=chat_id,
-#             limit=limit,
-#             before=before,
-#             include_files=include_files
-#         )
-
-#         return jsonify(messages), StatusCodes.OK
-
-#     except ResourceNotFoundError as e:
-#         return jsonify({
-#             'error': {
-#                 'code': 'NOT_FOUND',
-#                 'message': str(e)
-#             }
-#         }), StatusCodes.NOT_FOUND
-#     except Exception as e:
-#         return jsonify({
-#             'error': {
-#                 'code': 'INTERNAL_ERROR',
-#                 'message': Messages.SERVER_ERROR
-#             }
-#         }), StatusCodes.INTERNAL_ERROR
+@message_bp.route('/chats/<uuid:chat_id>/messages', methods=['GET'])
+def get_chat_messages(chat_id: UUID) -> tuple[Dict[str, Any], int]:
+    """
+    Get all messages in a chat.
+    
+    Args:
+        chat_id (UUID): The ID of the chat to get messages from
+        
+    Returns:
+        tuple: (response_data, status_code)
+    """
+    try:
+        include_files = request.args.get('include_files', 'false').lower() == 'true'
+        messages = ChatService.get_chat_messages(
+            chat_id=chat_id,
+            include_files=include_files
+        )
+        
+        return jsonify({
+            'chat_id': str(chat_id),
+            'messages': messages
+        }), HTTPStatus.OK
+        
+    except Exception as e:
+        return jsonify({
+            'error': str(e)
+        }), HTTPStatus.INTERNAL_SERVER_ERROR

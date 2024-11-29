@@ -4,6 +4,9 @@ from src.utils.db import db
 from src.utils.exceptions import ResourceNotFoundError, ValidationError
 from src.config.constants import ModelProvider
 from datetime import datetime
+from typing import Optional, Dict, List
+from uuid import UUID
+from sqlalchemy.exc import SQLAlchemyError
 
 class ChatService:
     @staticmethod
@@ -42,43 +45,65 @@ class ChatService:
             'has_more': total > (offset + limit)
         }
 
+    def append_message(
+        chat_id: UUID,
+        content: str,
+        role: str,
+        files: Optional[List] = None
+    ) -> Optional[Dict]:
+        """
+        Append a new message to a chat.
+        
+        Args:
+            chat_id (UUID): The ID of the chat to append the message to
+            content (str): The content of the message
+            role (str): The role of the message sender
+            files (List, optional): List of file objects to attach to the message
+            
+        Returns:
+            Dict: The created message as a dictionary, or None if creation fails
+        """
+        try:
+            message = Message(
+                chat_id=chat_id,
+                content=content,
+                role=role
+            )
+            
+            db.session.add(message)
+            db.session.commit()
+            
+            return message.to_dict(include_files=True)
+            
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            raise Exception(f"Failed to append message: {str(e)}")
+            
     @staticmethod
-    def add_message(chat_id, content, role, files=None, tokens_used=None):
-        message = Message(
-            chat_id=chat_id,
-            content=content,
-            role=role,
-            tokens_used=tokens_used
-        )
+    def get_chat_messages(
+        chat_id: UUID,
+        include_files: bool = False
+    ) -> List[Dict]:
+        """
+        Retrieve all messages for a specific chat.
         
-        if files:
-            message.files.extend(files)
-        
-        db.session.add(message)
-        
-        # Update chat's updated_at timestamp
-        chat = Chat.query.get(chat_id)
-        chat.updated_at = datetime.utcnow()
-        
-        db.session.commit()
-        return message
-
-    @staticmethod
-    def get_messages(chat_id, limit=50, before=None, include_files=False):
-        query = Message.query.filter_by(chat_id=chat_id)
-        
-        if before:
-            before_message = Message.query.get(before)
-            if before_message:
-                query = query.filter(Message.timestamp < before_message.timestamp)
-        
-        messages = query.order_by(Message.timestamp.desc()).limit(limit).all()
-        
-        return {
-            'messages': [msg.to_dict(include_files=include_files) for msg in messages],
-            'has_more': len(messages) == limit
-        }
-
+        Args:
+            chat_id (UUID): The ID of the chat to get messages from
+            include_files (bool): Whether to include file information in the response
+            
+        Returns:
+            List[Dict]: List of messages as dictionaries
+        """
+        try:
+            messages = Message.query.filter_by(chat_id=chat_id)\
+                                 .order_by(Message.timestamp.asc())\
+                                 .all()
+            
+            return [msg.to_dict(include_files=include_files) for msg in messages]
+            
+        except SQLAlchemyError as e:
+            raise Exception(f"Failed to retrieve chat messages: {str(e)}")
+            
     @staticmethod
     def delete_chat(chat_id, user_id):
         chat = ChatService.get_chat(chat_id, user_id)

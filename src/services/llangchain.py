@@ -66,17 +66,15 @@ class RAGChatBot:
 #   """
         instructions = """1. You are a highly knowledgeable medical assistant specializing in advising on surgical procedures. Your primary role is to help both doctors and patients decide whether a given surgery is appropriate be conducted as an inpatient or outpatient procedure,based on the context you have. You provide detailed explanations to support your recommendations, ensuring that users make informed decisions.
         2. You can save huge costs if you can correctly identify the case of Outpatient Surgery, so need not be conservative if you are confident, with the context you have"""
-        # Construct the input data for the chain
+
         input_data = {
             "context": relevant_context,
             "question": user_query,  # Directly use the user query here
             "GUIDELINES": instructions
         }
         
-        # Create a prompt using the template
         formatted_prompt = self.prompt_template.format(**input_data)
         
-        # Generate a response using the LLM with invoke method
         response = self.chat_model.invoke(formatted_prompt)
         
         return response.content
@@ -124,15 +122,12 @@ class RAGChatBot:
         Returns:
             str: The generated response.
         """
-        # Extract the last 4 messages plus the current one
         recent_messages = messages[-5:]  # Last 5 messages (4 historical + current)
 
-        # Prepare input for retrieval (use only the content of messages, excluding the current one)
         retrieval_input = "\n".join(
             f"{message['role'].capitalize()}: {message['content']}" for message in recent_messages[:-1]
         )
 
-        # Attempt to retrieve external documents
         try:
             retrieved_docs = self.retriever.retrieve_documents(retrieval_input)
             retrieved_context = self.format_docs(retrieved_docs)
@@ -140,17 +135,13 @@ class RAGChatBot:
             retrieved_context = "No additional information could be retrieved."
             print(f"Error during document retrieval: {e}")
 
-        # Ensure retrieved context is a valid string
         retrieved_context = str(retrieved_context)
 
-        # Add a system message with the retrieved context
         system_message_prompt = """1. You are a highly knowledgeable medical chat assistant specializing in advising on surgical procedures. Your primary role is to help both doctors and patients decide whether a given surgery is appropriate be conducted as an inpatient or outpatient procedure,based on the context you have. You provide detailed explanations to support your recommendations, ensuring that users make informed decisions.
         2. You can save HUGE costs if you can correctly identify the case of Outpatient Surgery, so need not be conservative if you are confident, with the context you have.
         3. If the question/chat is outside the medical domain, gently remind your expertise."""
         system_message = SystemMessage(content= system_message_prompt + f"\n **RELEVANT INFORMATION RETREIVED**:\n{retrieved_context}")
-        # system_message = SystemMessage(content="You are a Medical QA chat assistant and you are specialized in making decisions between Inpatient vs Outpatient surgeries.")
 
-        # Convert recent conversation into LangChain message objects
         formatted_recent_messages = []
         for message in recent_messages:
             if message["role"] == "user":
@@ -160,76 +151,13 @@ class RAGChatBot:
             else:
                 raise ValueError(f"Unexpected role: {message['role']}")
 
-        # Combine system message and formatted recent messages
         input_messages = [system_message] + formatted_recent_messages
-        #formatted_recent_messages.append(HumanMessage(content="Outpatient Surgery saves a lot of money. So never be conservative until otherwise inpatient surgery is ABSOULETELY necessary."))
-        # input_messages =  formatted_recent_messages
-        # print(input_messages)
-
-        # Generate the response using the chat model
         try:
             llm_response = self.chat_model.invoke(input_messages)
         except Exception as e:
             print(f"Error during model generation: {e}")
             raise
 
-        # Parse the response if needed
         parsed_response = StrOutputParser().parse(llm_response)
 
         return parsed_response.content
-
-
-    # def generate_answer_with_chat_context(self, messages):
-    #     """
-    #     Generates a response with the last few messages and retrieved context using the chat model.
-
-    #     Args:
-    #         messages (list): List of dictionaries representing the conversation history.
-
-    #     Returns:
-    #         str: The generated response.
-    #     """
-    #     # Extract the last 4 messages plus the current one
-    #     recent_messages = messages[-5:]  # Last 5 messages (4 historical + current)
-
-    #     # Prepare input for retrieval (use only the content of messages, excluding the current one)
-    #     retrieval_input = "\n".join(
-    #         message['content'] for message in recent_messages[:-1]
-    #     )
-
-    #     # Attempt to retrieve external documents
-    #     try:
-    #         retrieved_docs = self.retriever.retrieve_documents(retrieval_input)
-    #         retrieved_context = self.format_docs(retrieved_docs)
-    #     except Exception as e:
-    #         retrieved_context = "No additional information could be retrieved."
-    #         print(f"Error during document retrieval: {e}")
-
-    #     # Ensure retrieved context is a valid string
-    #     retrieved_context = str(retrieved_context)
-
-    #     # Instructions for the assistant
-    #     instructions = """1. You are a highly knowledgeable medical chat assistant specializing in advising on surgical procedures. Your primary role is to help both doctors and patients decide whether a given surgery is appropriate to be conducted as an inpatient or outpatient procedure based on the context you have. You provide detailed explanations to support your recommendations, ensuring that users make informed decisions.
-    # 2. You can save huge costs if you can correctly identify the case of Outpatient Surgery, so need not be conservative if you are confident, with the context you have.
-    # 3. If the question/chat is outside the medical domain, gently remind your expertise.
-    # 4. If you are not sure, either ask questions to user or say you need more information or that you don't know."""
-
-    #     # Construct input data for the LLM
-    #     input_data = {
-    #         "context": retrieved_context,
-    #         "question": recent_messages[-1]['content'],  # Use the latest user query
-    #         "GUIDELINES": instructions
-    #     }
-        
-    #     # Create a prompt using your template
-    #     formatted_prompt = self.prompt_template.format(**input_data)
-
-    #     # Generate a response using the LLM with invoke method
-    #     try:
-    #         response = self.chat_model.invoke(formatted_prompt)
-    #         parsed_response = StrOutputParser().parse(response)
-    #     except Exception as e:
-    #         print(f"Error during model generation: {e}")
-    #         parsed_response = "An error occurred while generating a response."
-
-    #     return parsed_response.content

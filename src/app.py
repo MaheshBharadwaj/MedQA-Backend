@@ -12,7 +12,7 @@ from src.utils.exceptions import APIException
 # Import routes
 from src.routes.auth import auth_bp
 from src.routes.chat import chat_bp
-# from src.routes.message import message_bp
+from src.routes.message import message_bp
 from src.routes.file import file_bp
 from src.routes.search import search_bp
 from src.routes.user import user_bp
@@ -34,7 +34,7 @@ def create_app():
     # Register blueprints
     app.register_blueprint(auth_bp)
     app.register_blueprint(chat_bp)
-    # app.register_blueprint(message_bp)
+    app.register_blueprint(message_bp)
     app.register_blueprint(file_bp)
     app.register_blueprint(search_bp)
     app.register_blueprint(user_bp)

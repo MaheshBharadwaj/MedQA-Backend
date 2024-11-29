@@ -17,8 +17,10 @@ def get_rag_response(current_user):
             raise ValidationError("Missing required fields")
         
         messages = data.get('messages', [])
-        rag_service.get_completion(messages)
-        print("Here 2")
+        resp = rag_service.get_completion(messages)
+        return jsonify({
+            'response': resp
+        }), StatusCodes.OK
     except ValidationError as e:
         return jsonify({
             'error': {

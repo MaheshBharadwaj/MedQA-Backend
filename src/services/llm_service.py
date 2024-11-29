@@ -88,6 +88,6 @@ class RAGService:
 
     def get_completion(self, messages):
         if len(messages) == 1:
-            return self.rag_chat_bot.generate_response(messages[0])
+            return self.rag_chat_bot.generate_response(messages[0]["content"])
         else:
             return self.rag_chat_bot.generate_answer_with_chat_context(messages)
