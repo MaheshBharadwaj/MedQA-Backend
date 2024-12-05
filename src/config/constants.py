@@ -25,7 +25,7 @@ JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY')
 
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg'}
 MAX_CONTENT_LENGTH = 32 * 1024 * 1024  # 16MB max file size
-CHROMA_DB_PATH = '/Users/maheshbharadwajk/Documents/fa24/repos/MedQA-Backend/chroma_db'
+CHROMA_DB_PATH = '/Users/rohithvutukuru/Desktop/Fall 2024/MED 277/Project/MedQA-Backend/chroma_db'
 
 class ModelProvider:
     ANTHROPIC = "claude"
