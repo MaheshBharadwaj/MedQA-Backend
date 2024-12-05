@@ -31,7 +31,7 @@ def get_rag_response(current_user):
 
 @llm_bp.route('/vanilla', methods=['POST'])
 @require_auth
-def get_rag_response(current_user):
+def get_vanilla_response(current_user):
     try:
         data = request.get_json()
         if not data or 'messages' not in data:
