@@ -27,7 +27,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from operator import itemgetter
 from langchain.chat_models import ChatOpenAI
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
-from src.config.constants import COMMON_INSTRUCTIONS, PROMPT_TEMPLATE_NEW, SYSTEM_PROMPT_TEMPLATE_CHAT_HISTORY
+from src.config.constants import COMMON_INSTRUCTIONS, PROMPT_TEMPLATE_NEW, SYSTEM_PROMPT_TEMPLATE_CHAT_HISTORY, SYSTEM_PROMPT_TEMPLATE_NO_RAG_CHAT_HISTORY
 
 class DocumentRetriever:
     def __init__(self, persist_directory):
@@ -84,22 +84,14 @@ class RAGChatBot:
         return response.content
 
     def generate_response_no_rag(self, question):
-        template = """You are a highly knowledgeable and empathetic medical assistant specializing in advising on surgical procedures. Your primary role is to help both doctors and patients decide whether a given surgery is appropriate be conducted as an inpatient or outpatient procedure. You provide detailed explanations to support your recommendations, ensuring that users make informed decisions.
 
-Guidelines:
-1. **Focus on Medical Context:** Always center your responses around medical topics, particularly those related to surgical procedures and patient care settings.
-2. **Inquire When Necessary:** If you require more information to make an informed decision, politely ask the user specific questions about the surgery details, such as the type of surgery, patient health status, or any existing medical conditions.
-3. **Educational Approach:** Explain your suggestions clearly, using simple language that both healthcare professionals and patients can understand. Provide insights into the benefits and considerations of each option.
-4. **Boundary Setting:** If a user asks questions outside the medical domain, gently remind them that your expertise is focused on healthcare and surgical advice.
-
-Example Interaction:
-- **User Query:** "I need to know if my knee surgery should be inpatient or outpatient."
-- **Response:** "Knee surgeries can often be performed as outpatient procedures if the patient is in good health and the surgery is minimally invasive. However, if there are underlying health concerns or if a more complex procedure is needed, an inpatient setting might be safer. Could you provide more details about your specific situation?"
-
-By adhering to these guidelines, you ensure that every interaction is informative, supportive, and within the scope of medical advisement.
-        """
-        template1 = """1. You are a highly knowledgeable medical assistant specializing in advising on surgical procedures. Your primary role is to help both doctors and patients decide whether a given surgery is appropriate be conducted as an inpatient or outpatient procedure,based on the context you have. You provide detailed explanations to support your recommendations, ensuring that users make informed decisions.
-        2. You can save huge costs if you can correctly identify the case of Outpatient Surgery, so please keep this in mind."""
+        template1 = """1. You are an assistant for medical question-answering tasks.
+        2. Read the question with atmost care and keep your answer concise.
+        3. You are a highly knowledgeable medical assistant specializing in advising on surgical procedures. Your primary role is to help both doctors and patients decide whether a given surgery is appropriate be conducted as an inpatient or outpatient procedure. You provide detailed explanations to support your recommendations, ensuring that users make informed decisions.
+        4. You can save huge costs if you can correctly identify the case of Outpatient Surgery, so please keep this in mind.
+        5. If the patients are healthy currently and comorbidities are well controlled or have medical clearence, it is a good sign for Outpatient surgery generally .
+        6. If you do not know the answer, Please convey to user that you are not sure or you require more information.
+        7. If the question is not in your domain, please remind user about your expertise."""
         system_message_prompt = SystemMessagePromptTemplate.from_template(template1)
         human_template = "{text}"
         human_message_prompt = HumanMessagePromptTemplate.from_template(human_template)
@@ -115,8 +107,6 @@ By adhering to these guidelines, you ensure that every interaction is informativ
         )
 
         return msg.content
-
-
 
     def generate_answer_with_chat_context(self, messages):
         """
@@ -157,6 +147,52 @@ By adhering to these guidelines, you ensure that every interaction is informativ
         }
         system_message_prompt = self.prompt_template_for_chat.format(**input_data)
         system_message = SystemMessage(content= system_message_prompt)
+        # system_message = SystemMessage(content="You are a Medical QA chat assistant and you are specialized in making decisions between Inpatient vs Outpatient surgeries.")
+
+        # Convert recent conversation into LangChain message objects
+        formatted_recent_messages = []
+        for message in recent_messages:
+            if message["role"] == "user":
+                formatted_recent_messages.append(HumanMessage(content=message["content"]))
+            elif message["role"] == "ai":
+                formatted_recent_messages.append(AIMessage(content=message["content"]))
+            else:
+                raise ValueError(f"Unexpected role: {message['role']}")
+
+        # Combine system message and formatted recent messages
+        input_messages = [system_message] + formatted_recent_messages
+        #formatted_recent_messages.append(HumanMessage(content="Outpatient Surgery saves a lot of money. So never be conservative until otherwise inpatient surgery is ABSOULETELY necessary."))
+        # input_messages =  formatted_recent_messages
+        print(formatted_recent_messages)
+
+        # Generate the response using the chat model
+        try:
+            llm_response = self.chat_model.invoke(input_messages)
+        except Exception as e:
+            print(f"Error during model generation: {e}")
+            raise
+
+        # Parse the response if needed
+        parsed_response = StrOutputParser().parse(llm_response)
+
+        return parsed_response.content
+
+    def generate_answer_with_chat_context_no_rag(self, messages):
+        """
+        Generates a response with the last few messages and retrieved context using the chat model.
+
+        Args:
+            messages (list): List of dictionaries representing the conversation history.
+
+        Returns:
+            str: The generated response.
+        """
+        # Extract the last 4 messages plus the current one
+        recent_messages = []
+        if len(messages)>5:
+            recent_messages = [messages[0]] + [messages[1]]
+        recent_messages = recent_messages+ messages[-5:]  # Last 5 messages (4 historical + current)
+        system_message = SystemMessage(content= SYSTEM_PROMPT_TEMPLATE_NO_RAG_CHAT_HISTORY)
         # system_message = SystemMessage(content="You are a Medical QA chat assistant and you are specialized in making decisions between Inpatient vs Outpatient surgeries.")
 
         # Convert recent conversation into LangChain message objects

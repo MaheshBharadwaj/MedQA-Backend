@@ -86,8 +86,14 @@ class RAGService:
         self.document_retriever = DocumentRetriever(persist_directory=CHROMA_DB_PATH)
         self.rag_chat_bot = RAGChatBot(self.document_retriever)
 
-    def get_completion(self, messages):
+    def get_completion(self, messages, mode="rag"):
         if len(messages) == 1:
-            return self.rag_chat_bot.generate_response(messages[0]["content"])
+            if mode == "rag":
+                return self.rag_chat_bot.generate_response(messages[0]["content"])
+            else:
+                return self.rag_chat_bot.generate_response_no_rag(messages[0]["content"])
         else:
-            return self.rag_chat_bot.generate_answer_with_chat_context(messages)
+            if mode == "rag":
+                return self.rag_chat_bot.generate_answer_with_chat_context(messages)
+            else:
+                return self.rag_chat_bot.generate_answer_with_chat_context_no_rag(messages)

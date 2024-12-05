@@ -17,7 +17,7 @@ def get_rag_response(current_user):
             raise ValidationError("Missing required fields")
         
         messages = data.get('messages', [])
-        resp = rag_service.get_completion(messages)
+        resp = rag_service.get_completion(messages, mode="rag")
         return jsonify({
             'response': resp
         }), StatusCodes.OK
@@ -29,3 +29,23 @@ def get_rag_response(current_user):
             }
         }), StatusCodes.BAD_REQUEST
 
+@llm_bp.route('/vanilla', methods=['POST'])
+@require_auth
+def get_rag_response(current_user):
+    try:
+        data = request.get_json()
+        if not data or 'messages' not in data:
+            raise ValidationError("Missing required fields")
+        
+        messages = data.get('messages', [])
+        resp = rag_service.get_completion(messages, mode="vanilla")
+        return jsonify({
+            'response': resp
+        }), StatusCodes.OK
+    except ValidationError as e:
+        return jsonify({
+            'error': {
+                'code': 'INVALID_REQUEST',
+                'message': str(e)
+            }
+        }), StatusCodes.BAD_REQUEST
